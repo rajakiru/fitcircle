@@ -77,13 +77,21 @@ export default function FeedScreen({ userId, groupId }: Props) {
   return (
     <div style={{ paddingBottom: 24 }}>
       {/* Header */}
-      <div style={{ padding: '60px 20px 8px' }}>
-        <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.red, fontWeight: 600, letterSpacing: -0.08 }}>
-          YOUR CIRCLE{members.length > 0 ? ` · ${members.length}` : ''}
+      <div style={{ padding: '60px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.red, fontWeight: 600, letterSpacing: -0.08 }}>
+            YOUR CIRCLE{members.length > 0 ? ` · ${members.length}` : ''}
+          </div>
+          <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 34, fontWeight: 700, color: B_COLORS.ink, letterSpacing: 0.4, marginTop: 2 }}>
+            Circle
+          </div>
         </div>
-        <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 34, fontWeight: 700, color: B_COLORS.ink, letterSpacing: 0.4, marginTop: 2 }}>
-          Circle
-        </div>
+        <button onClick={load} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M15.5 9A6.5 6.5 0 1 1 9 2.5c2 0 3.8.9 5 2.3" stroke={B_COLORS.green} strokeWidth="1.6" strokeLinecap="round"/>
+            <path d="M14 2v3h3" stroke={B_COLORS.green} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       {!groupId ? (
