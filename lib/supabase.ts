@@ -335,3 +335,40 @@ export async function addReaction(postId: string, userId: string, emoji: string)
     .update({ reactions })
     .eq('id', postId);
 }
+
+export async function uploadMealPhoto(userId: string, file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop() ?? 'jpg';
+  const path = `${userId}/${Date.now()}.${ext}`;
+  const { error } = await getSupabase().storage.from('meals').upload(path, file);
+  if (error) { console.error('upload error', error); return null; }
+  const { data } = getSupabase().storage.from('meals').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function createFeedPost(
+  userId: string,
+  groupId: string,
+  imageUrl: string | null,
+  caption: string | null,
+): Promise<FeedPost | null> {
+  const { data } = await getSupabase()
+    .from('feed_posts')
+    .insert({ user_id: userId, group_id: groupId, type: 'meal', image_url: imageUrl, caption, reactions: {} })
+    .select()
+    .maybeSingle();
+  return data;
+}
+
+export async function getUserMealPosts(userId: string, date: string): Promise<FeedPost[]> {
+  const from = `${date}T00:00:00`;
+  const to = `${date}T23:59:59`;
+  const { data } = await getSupabase()
+    .from('feed_posts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'meal')
+    .gte('created_at', from)
+    .lte('created_at', to)
+    .order('created_at', { ascending: true });
+  return (data as FeedPost[]) ?? [];
+}

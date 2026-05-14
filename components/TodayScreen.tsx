@@ -1,6 +1,10 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
 import { CHECKLIST_ITEMS } from '@/lib/data';
 import { todayISO, offsetISO } from '@/lib/storage';
+import { uploadMealPhoto, createFeedPost, getUserMealPosts, type FeedPost } from '@/lib/supabase';
 import TripleRing from './TripleRing';
 
 type Checked = Record<string, boolean>;
@@ -11,6 +15,8 @@ type Props = {
   showNudge: boolean;
   currentDate: string;
   onNavigateDate: (date: string) => void;
+  userId: string;
+  groupId: string | null;
 };
 
 const RING_GROUPS = ['nutrition', 'body', 'rhythm'] as const;
@@ -37,9 +43,48 @@ function formatDate(iso: string): { dow: string; label: string; isToday: boolean
   };
 }
 
-export default function TodayScreen({ checked, toggle, showNudge, currentDate, onNavigateDate }: Props) {
+export default function TodayScreen({ checked, toggle, showNudge, currentDate, onNavigateDate, userId, groupId }: Props) {
   const done = Object.values(checked).filter(Boolean).length;
   const { label, isToday } = formatDate(currentDate);
+
+  const [mealPosts, setMealPosts] = useState<FeedPost[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<'Breakfast' | 'Lunch' | 'Dinner'>('Breakfast');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const [caption, setCaption] = useState('');
+  const [posting, setPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getUserMealPosts(userId, currentDate).then(setMealPosts);
+  }, [userId, currentDate]);
+
+  const handlePost = async () => {
+    if (!groupId || !pendingFile) return;
+    setPosting(true);
+    const imageUrl = await uploadMealPhoto(userId, pendingFile);
+    const fullCaption = caption.trim() ? `${selectedMeal} · ${caption.trim()}` : selectedMeal;
+    await createFeedPost(userId, groupId, imageUrl, fullCaption);
+    const updated = await getUserMealPosts(userId, currentDate);
+    setMealPosts(updated);
+    setPosting(false);
+    setSheetOpen(false);
+    setPendingFile(null);
+    setPendingPreview(null);
+    setCaption('');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile(file);
+    setPendingPreview(URL.createObjectURL(file));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const getSlotPost = (meal: string) =>
+    mealPosts.find(p => p.caption?.startsWith(meal));
 
   const ringStats = RING_GROUPS.map(g => {
     const items = CHECKLIST_ITEMS.filter(i => i.group === g);
@@ -216,47 +261,171 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
         <div style={{
           fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.inkSoft,
           padding: '0 4px 8px', textTransform: 'uppercase', letterSpacing: -0.08,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          Meals
+          <span>Meals</span>
+          {isToday && groupId && (
+            <button
+              onClick={() => setSheetOpen(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <circle cx="9" cy="9" r="8" stroke={B_COLORS.green} strokeWidth="1.5" />
+                <path d="M9 6v6M6 9h6" stroke={B_COLORS.green} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
         </div>
         <div style={{ background: B_COLORS.card, borderRadius: 14, padding: 12, display: 'flex', gap: 8 }}>
-          {[
-            { m: 'Breakfast', filled: true,  time: '8:14 AM' },
-            { m: 'Lunch',     filled: false, time: '—'       },
-            { m: 'Dinner',    filled: false, time: '—'       },
-          ].map(meal => (
-            <div
-              key={meal.m}
-              style={{
-                flex: 1, aspectRatio: '1 / 1.05', borderRadius: 10,
-                position: 'relative', overflow: 'hidden',
-                background: meal.filled
-                  ? 'linear-gradient(135deg, #f7d4b8 0%, #e8a87c 50%, #c9806d 100%)'
-                  : B_COLORS.bg,
-                border: meal.filled ? 'none' : `1px dashed ${B_COLORS.inkFaint}`,
-                display: 'flex', flexDirection: 'column',
-                justifyContent: 'space-between', padding: 10,
-                cursor: 'pointer',
-              }}
-            >
-              {!meal.filled && (
-                <div style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: B_COLORS.inkFaint, fontSize: 22, fontWeight: 200,
-                }}>+</div>
-              )}
-              <div>
-                <div style={{ fontFamily: B_FONT, fontSize: 11, fontWeight: 600, color: meal.filled ? '#fff' : B_COLORS.inkSoft }}>
-                  {meal.m}
-                </div>
-                <div style={{ fontFamily: B_FONT, fontSize: 10, color: meal.filled ? 'rgba(255,255,255,0.8)' : B_COLORS.inkFaint, marginTop: 1 }}>
-                  {meal.time}
-                </div>
+          {(['Breakfast', 'Lunch', 'Dinner'] as const).map(meal => {
+            const post = getSlotPost(meal);
+            return (
+              <div
+                key={meal}
+                onClick={() => {
+                  if (!isToday || !groupId) return;
+                  setSelectedMeal(meal);
+                  setSheetOpen(true);
+                }}
+                style={{
+                  flex: 1, aspectRatio: '1 / 1.05', borderRadius: 10,
+                  position: 'relative', overflow: 'hidden',
+                  background: post ? '#000' : B_COLORS.bg,
+                  border: post ? 'none' : `1px dashed ${B_COLORS.inkFaint}`,
+                  display: 'flex', flexDirection: 'column',
+                  justifyContent: 'space-between', padding: 0,
+                  cursor: isToday && groupId ? 'pointer' : 'default',
+                }}
+              >
+                {post?.image_url ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={post.image_url} alt={meal} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '6px 8px',
+                      background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
+                    }}>
+                      <div style={{ fontFamily: B_FONT, fontSize: 10, fontWeight: 600, color: '#fff' }}>{meal}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 10 }}>
+                    <div style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: B_COLORS.inkFaint, fontSize: 22, fontWeight: 200,
+                    }}>+</div>
+                    <div>
+                      <div style={{ fontFamily: B_FONT, fontSize: 11, fontWeight: 600, color: B_COLORS.inkSoft }}>{meal}</div>
+                      <div style={{ fontFamily: B_FONT, fontSize: 10, color: B_COLORS.inkFaint, marginTop: 1 }}>—</div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      {/* hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
+      {/* Meal post sheet */}
+      {sheetOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'flex-end',
+        }} onClick={e => { if (e.target === e.currentTarget) { setSheetOpen(false); setPendingFile(null); setPendingPreview(null); setCaption(''); } }}>
+          <div style={{
+            width: '100%', background: B_COLORS.bg, borderRadius: '20px 20px 0 0',
+            padding: '20px 20px 40px', maxHeight: '85vh', overflowY: 'auto',
+          }}>
+            {/* Sheet header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 20, fontWeight: 700, color: B_COLORS.ink }}>
+                Share a meal
+              </div>
+              <button onClick={() => { setSheetOpen(false); setPendingFile(null); setPendingPreview(null); setCaption(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 15, color: B_COLORS.inkSoft }}>
+                Cancel
+              </button>
+            </div>
+
+            {/* Meal selector */}
+            <div style={{ display: 'flex', background: B_COLORS.card, borderRadius: 10, padding: 3, marginBottom: 16, gap: 3 }}>
+              {(['Breakfast', 'Lunch', 'Dinner'] as const).map(m => (
+                <button key={m} onClick={() => setSelectedMeal(m)} style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
+                  background: selectedMeal === m ? B_COLORS.green : 'transparent',
+                  color: selectedMeal === m ? '#fff' : B_COLORS.inkSoft,
+                }}>{m}</button>
+              ))}
+            </div>
+
+            {/* Photo picker */}
+            {pendingPreview ? (
+              <div style={{ position: 'relative', marginBottom: 14 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={pendingPreview} alt="preview" style={{ width: '100%', borderRadius: 14, maxHeight: 260, objectFit: 'cover', display: 'block' }} />
+                <button onClick={() => { setPendingFile(null); setPendingPreview(null); fileInputRef.current?.click(); }}
+                  style={{
+                    position: 'absolute', top: 10, right: 10,
+                    background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: 20,
+                    padding: '5px 12px', cursor: 'pointer',
+                    fontFamily: B_FONT, fontSize: 12, color: '#fff', fontWeight: 600,
+                  }}>Change</button>
+              </div>
+            ) : (
+              <button onClick={() => fileInputRef.current?.click()} style={{
+                width: '100%', aspectRatio: '16/9', borderRadius: 14, border: `1.5px dashed ${B_COLORS.inkFaint}`,
+                background: B_COLORS.card, cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14,
+              }}>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                  <path d="M3 20V8a2 2 0 012-2h2.5l2-2.5h5L16.5 6H23a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke={B_COLORS.inkFaint} strokeWidth="1.5" />
+                  <circle cx="14" cy="14" r="3.5" stroke={B_COLORS.inkFaint} strokeWidth="1.5" />
+                </svg>
+                <span style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.inkSoft }}>Add photo</span>
+              </button>
+            )}
+
+            {/* Caption input */}
+            <input
+              placeholder="Add a note… (optional)"
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              style={{
+                width: '100%', padding: '12px 14px', borderRadius: 12,
+                border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.card,
+                fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none',
+                boxSizing: 'border-box', marginBottom: 16,
+              }}
+            />
+
+            {/* Post button */}
+            <button
+              onClick={handlePost}
+              disabled={posting || !pendingFile}
+              style={{
+                width: '100%', padding: '15px 0', borderRadius: 14, border: 'none',
+                cursor: posting || !pendingFile ? 'default' : 'pointer',
+                background: posting || !pendingFile ? B_COLORS.inkFaint : B_COLORS.green,
+                fontFamily: B_FONT, fontSize: 16, fontWeight: 600, color: '#fff',
+              }}
+            >
+              {posting ? 'Posting…' : 'Post to Circle'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

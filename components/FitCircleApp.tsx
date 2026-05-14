@@ -132,6 +132,8 @@ export default function FitCircleApp() {
             showNudge={isToday}
             currentDate={currentDate}
             onNavigateDate={navigateDate}
+            userId={userId!}
+            groupId={groupId}
           />
         )}
         {tab === 'feed' && (
