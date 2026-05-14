@@ -6,6 +6,7 @@ import { CHECKLIST_ITEMS } from '@/lib/data';
 import { todayISO } from '@/lib/storage';
 import {
   getMemberProgress, getFeedPosts, addReaction as addReactionDB,
+  updateFeedPost, deleteFeedPost,
   type Profile, type FeedPost,
 } from '@/lib/supabase';
 
@@ -45,6 +46,9 @@ export default function FeedScreen({ userId, groupId }: Props) {
   const [members, setMembers] = useState<MemberProgress[]>([]);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [menuPostId, setMenuPostId] = useState<string | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editCaption, setEditCaption] = useState('');
 
   const load = useCallback(async () => {
     if (!groupId) { setLoading(false); return; }
@@ -70,6 +74,20 @@ export default function FeedScreen({ userId, groupId }: Props) {
         : [...cur, userId];
       return { ...p, reactions: { ...p.reactions, [emoji]: next } };
     }));
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Delete this post?')) return;
+    await deleteFeedPost(postId);
+    setPosts(prev => prev.filter(p => p.id !== postId));
+    setMenuPostId(null);
+  };
+
+  const handleEdit = async (postId: string) => {
+    await updateFeedPost(postId, editCaption);
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: editCaption } : p));
+    setEditingPostId(null);
+    setMenuPostId(null);
   };
 
   const loggedCount = members.filter(m => m.done > 0).length;
@@ -163,6 +181,9 @@ export default function FeedScreen({ userId, groupId }: Props) {
               <div style={{ background: B_COLORS.card, borderRadius: 14, overflow: 'hidden' }}>
                 {posts.map((post, i) => {
                   const member = post.profile;
+                  const isOwner = post.user_id === userId;
+                  const menuOpen = menuPostId === post.id;
+                  const isEditing = editingPostId === post.id;
                   const myReactions = Object.entries(post.reactions)
                     .filter(([, ids]) => (ids as string[]).includes(userId))
                     .map(([e]) => e);
@@ -171,6 +192,7 @@ export default function FeedScreen({ userId, groupId }: Props) {
                       padding: '14px 16px',
                       borderBottom: i === posts.length - 1 ? 'none' : `0.5px solid ${B_COLORS.hairline}`,
                     }}>
+                      {/* Header row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                         {member && <Avatar name={member.name} tint={member.tint} />}
                         <div style={{ flex: 1 }}>
@@ -181,12 +203,65 @@ export default function FeedScreen({ userId, groupId }: Props) {
                             {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
+                        {isOwner && (
+                          <div style={{ position: 'relative' }}>
+                            <button onClick={() => setMenuPostId(menuOpen ? null : post.id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 8 }}>
+                              <span style={{ fontFamily: B_FONT, fontSize: 18, color: B_COLORS.inkSoft, letterSpacing: 1 }}>•••</span>
+                            </button>
+                            {menuOpen && (
+                              <div style={{
+                                position: 'absolute', right: 0, top: 30, zIndex: 10,
+                                background: '#fff', borderRadius: 12, overflow: 'hidden',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 130,
+                              }}>
+                                <button onClick={() => { setEditingPostId(post.id); setEditCaption(post.caption ?? ''); setMenuPostId(null); }}
+                                  style={{
+                                    width: '100%', padding: '12px 16px', background: 'none', border: 'none',
+                                    cursor: 'pointer', textAlign: 'left',
+                                    fontFamily: B_FONT, fontSize: 14, color: B_COLORS.ink,
+                                    borderBottom: `0.5px solid ${B_COLORS.hairline}`,
+                                  }}>Edit caption</button>
+                                <button onClick={() => handleDelete(post.id)}
+                                  style={{
+                                    width: '100%', padding: '12px 16px', background: 'none', border: 'none',
+                                    cursor: 'pointer', textAlign: 'left',
+                                    fontFamily: B_FONT, fontSize: 14, color: B_COLORS.red,
+                                  }}>Delete post</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {post.caption && (
+
+                      {/* Caption / edit */}
+                      {isEditing ? (
+                        <div style={{ marginBottom: 8, display: 'flex', gap: 8 }}>
+                          <input
+                            value={editCaption}
+                            onChange={e => setEditCaption(e.target.value)}
+                            autoFocus
+                            style={{
+                              flex: 1, padding: '8px 12px', borderRadius: 10,
+                              border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg,
+                              fontFamily: B_FONT, fontSize: 14, color: B_COLORS.ink, outline: 'none',
+                            }}
+                          />
+                          <button onClick={() => handleEdit(post.id)}
+                            style={{ padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', background: B_COLORS.green, color: '#fff', fontFamily: B_FONT, fontSize: 13, fontWeight: 600 }}>
+                            Save
+                          </button>
+                          <button onClick={() => setEditingPostId(null)}
+                            style={{ padding: '8px 10px', borderRadius: 10, border: 'none', cursor: 'pointer', background: B_COLORS.bg, color: B_COLORS.inkSoft, fontFamily: B_FONT, fontSize: 13 }}>
+                            ✕
+                          </button>
+                        </div>
+                      ) : post.caption ? (
                         <div style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.ink, marginBottom: 8 }}>
                           {post.caption}
                         </div>
-                      )}
+                      ) : null}
+
                       {post.image_url && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={post.image_url} alt="meal"

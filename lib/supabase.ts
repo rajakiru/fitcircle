@@ -326,6 +326,14 @@ export async function getMemberStreaks(
   });
 }
 
+export async function updateFeedPost(postId: string, caption: string) {
+  return getSupabase().from('feed_posts').update({ caption }).eq('id', postId);
+}
+
+export async function deleteFeedPost(postId: string) {
+  return getSupabase().from('feed_posts').delete().eq('id', postId);
+}
+
 export async function addReaction(postId: string, userId: string, emoji: string) {
   const { data } = await getSupabase()
     .from('feed_posts')
