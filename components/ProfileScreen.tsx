@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
-import { signOut, getProfile, getGroup, getGroupMembers, upsertProfile, createGroup, joinGroup, leaveGroup, deleteGroup, type Profile, type Group } from '@/lib/supabase';
+import { signOut, getProfile, getGroup, getGroupMembers, upsertProfile, createGroup, joinGroup, leaveGroup, deleteGroup, removeFromGroup, type Profile, type Group } from '@/lib/supabase';
 
 const TINTS = ['#0F4C3A', '#FF2D55', '#007AFF', '#FF9500', '#AF52DE', '#34C759'];
 
@@ -267,6 +267,17 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
                     {m.id === userId && <span style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, fontWeight: 400, marginLeft: 6 }}>you</span>}
                   </div>
                 </div>
+                {group?.created_by === userId && m.id !== userId && (
+                  <button onClick={async () => {
+                    if (!confirm(`Remove ${m.name || 'this member'} from the circle?`)) return;
+                    await removeFromGroup(m.id);
+                    setMembers(prev => prev.filter(x => x.id !== m.id));
+                  }} style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.red,
+                    padding: '4px 8px', borderRadius: 8,
+                  }}>Remove</button>
+                )}
               </div>
             ))}
 

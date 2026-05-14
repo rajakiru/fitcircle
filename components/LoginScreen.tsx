@@ -12,6 +12,7 @@ export default function LoginScreen({ onSuccess }: Props) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const submit = async () => {
     setError('');
@@ -22,6 +23,7 @@ export default function LoginScreen({ onSuccess }: Props) {
         ? await signIn(email, password)
         : await signUp(email, password);
       if (err) { setError(err.message); }
+      else if (mode === 'signup') { setConfirmed(true); }
       else { onSuccess(); }
     } finally {
       setLoading(false);
@@ -41,6 +43,24 @@ export default function LoginScreen({ onSuccess }: Props) {
       alignItems: 'center', justifyContent: 'center',
       background: B_COLORS.bg, padding: '0 24px',
     }}>
+      {confirmed && (
+        <div style={{
+          position: 'absolute', top: 60, left: 24, right: 24,
+          background: B_COLORS.greenSoft, borderRadius: 14,
+          padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: 20 }}>📬</span>
+          <div>
+            <div style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.green }}>
+              Check your email
+            </div>
+            <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.green, marginTop: 2, lineHeight: 1.4 }}>
+              We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then sign in.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logo / wordmark */}
       <div style={{ marginBottom: 40, textAlign: 'center' }}>
         <div style={{

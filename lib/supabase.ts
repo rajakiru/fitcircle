@@ -242,6 +242,10 @@ export async function leaveGroup(userId: string) {
   return getSupabase().from('profiles').update({ group_id: null }).eq('id', userId);
 }
 
+export async function removeFromGroup(memberId: string) {
+  return getSupabase().from('profiles').update({ group_id: null }).eq('id', memberId);
+}
+
 export async function deleteGroup(groupId: string) {
   return getSupabase().from('groups').delete().eq('id', groupId);
 }
