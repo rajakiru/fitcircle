@@ -1,6 +1,6 @@
 import { B_COLORS, B_FONT } from '@/lib/colors';
 
-type Tab = 'today' | 'feed' | 'stats';
+export type Tab = 'today' | 'feed' | 'history' | 'profile';
 
 function TodayIcon({ on }: { on: boolean }) {
   const c = on ? B_COLORS.green : B_COLORS.inkSoft;
@@ -23,20 +23,36 @@ function FeedIcon({ on }: { on: boolean }) {
   );
 }
 
-function StatsIcon({ on }: { on: boolean }) {
+function HistoryIcon({ on }: { on: boolean }) {
   const c = on ? B_COLORS.green : B_COLORS.inkSoft;
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-      <path d="M4 18l5-5 4 3 7-8" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="20" cy="8" r="1.6" fill={c} />
+      <rect x="4" y="6" width="18" height="16" rx="3" stroke={c} strokeWidth="1.6" />
+      <path d="M9 4v4M17 4v4M4 11h18" stroke={c} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="9"  cy="16" r="1.2" fill={c} />
+      <circle cx="13" cy="16" r="1.2" fill={c} />
+      <circle cx="17" cy="16" r="1.2" fill={c} />
+      <circle cx="9"  cy="20" r="1.2" fill={c} />
+      <circle cx="13" cy="20" r="1.2" fill={c} />
+    </svg>
+  );
+}
+
+function ProfileIcon({ on }: { on: boolean }) {
+  const c = on ? B_COLORS.green : B_COLORS.inkSoft;
+  return (
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <circle cx="13" cy="9" r="4" stroke={c} strokeWidth="1.6" />
+      <path d="M4 22c0-4 4-7 9-7s9 3 9 7" stroke={c} strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'today', label: 'Today' },
-  { id: 'feed', label: 'Circle' },
-  { id: 'stats', label: 'Trends' },
+  { id: 'today',   label: 'Today'   },
+  { id: 'feed',    label: 'Circle'  },
+  { id: 'history', label: 'History' },
+  { id: 'profile', label: 'Profile' },
 ];
 
 export default function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
@@ -51,27 +67,23 @@ export default function TabBar({ active, onChange }: { active: Tab; onChange: (t
       justifyContent: 'space-around',
       paddingTop: 8,
       flexShrink: 0,
+      minHeight: 84,
     }}>
       {TABS.map(t => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
           style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 3,
-            padding: '4px 10px',
-            flex: 1,
+            background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            padding: '4px 10px', flex: 1,
             color: active === t.id ? B_COLORS.green : B_COLORS.inkSoft,
           }}
         >
-          {t.id === 'today' && <TodayIcon on={active === t.id} />}
-          {t.id === 'feed'  && <FeedIcon  on={active === t.id} />}
-          {t.id === 'stats' && <StatsIcon on={active === t.id} />}
+          {t.id === 'today'   && <TodayIcon   on={active === t.id} />}
+          {t.id === 'feed'    && <FeedIcon    on={active === t.id} />}
+          {t.id === 'history' && <HistoryIcon on={active === t.id} />}
+          {t.id === 'profile' && <ProfileIcon on={active === t.id} />}
           <span style={{ fontFamily: B_FONT, fontSize: 10, fontWeight: 500, letterSpacing: 0.1 }}>
             {t.label}
           </span>

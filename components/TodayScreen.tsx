@@ -1,5 +1,6 @@
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
 import { CHECKLIST_ITEMS } from '@/lib/data';
+import { todayISO, offsetISO } from '@/lib/storage';
 import TripleRing from './TripleRing';
 
 type Checked = Record<string, boolean>;
@@ -8,6 +9,8 @@ type Props = {
   checked: Checked;
   toggle: (id: string) => void;
   showNudge: boolean;
+  currentDate: string;
+  onNavigateDate: (date: string) => void;
 };
 
 const RING_GROUPS = ['nutrition', 'body', 'rhythm'] as const;
@@ -20,8 +23,23 @@ const SECTIONS = [
   { key: 'mind',      title: 'Mind'      },
 ] as const;
 
-export default function TodayScreen({ checked, toggle, showNudge }: Props) {
+const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const DAY_NAMES   = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+
+function formatDate(iso: string): { dow: string; label: string; isToday: boolean } {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const dow = DAY_NAMES[dt.getDay()];
+  return {
+    dow,
+    label: `${dow}, ${MONTH_NAMES[m - 1]} ${d}`,
+    isToday: iso === todayISO(),
+  };
+}
+
+export default function TodayScreen({ checked, toggle, showNudge, currentDate, onNavigateDate }: Props) {
   const done = Object.values(checked).filter(Boolean).length;
+  const { label, isToday } = formatDate(currentDate);
 
   const ringStats = RING_GROUPS.map(g => {
     const items = CHECKLIST_ITEMS.filter(i => i.group === g);
@@ -29,15 +47,57 @@ export default function TodayScreen({ checked, toggle, showNudge }: Props) {
     return { g, d, t: items.length, pct: d / items.length };
   });
 
+  const canGoForward = currentDate < todayISO();
+
   return (
     <div style={{ paddingBottom: 24 }}>
-      {/* Header */}
-      <div style={{ padding: '60px 20px 8px' }}>
-        <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.red, fontWeight: 600, letterSpacing: -0.08 }}>
-          SUNDAY, MAY 4
+      {/* Date nav header */}
+      <div style={{ padding: '52px 16px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => onNavigateDate(offsetISO(currentDate, -1))}
+            style={{
+              width: 32, height: 32, borderRadius: 16,
+              background: B_COLORS.greenSoft, border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          >
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+              <path d="M7 1L1 6.5L7 12" stroke={B_COLORS.green} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.red, fontWeight: 600, letterSpacing: 0.4 }}>
+              {label}
+            </div>
+          </div>
+
+          <button
+            onClick={() => canGoForward && onNavigateDate(offsetISO(currentDate, 1))}
+            style={{
+              width: 32, height: 32, borderRadius: 16,
+              background: canGoForward ? B_COLORS.greenSoft : 'transparent',
+              border: 'none',
+              cursor: canGoForward ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          >
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+              <path
+                d="M1 1L7 6.5L1 12"
+                stroke={canGoForward ? B_COLORS.green : B_COLORS.inkFaint}
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
-        <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 34, fontWeight: 700, color: B_COLORS.ink, letterSpacing: 0.4, marginTop: 2 }}>
-          Today
+
+        <div style={{
+          fontFamily: B_FONT_DISPLAY, fontSize: 34, fontWeight: 700,
+          color: B_COLORS.ink, letterSpacing: 0.4, marginTop: 6, paddingLeft: 4,
+        }}>
+          {isToday ? 'Today' : formatDate(currentDate).label.split(', ')[1]}
         </div>
       </div>
 
@@ -70,56 +130,37 @@ export default function TodayScreen({ checked, toggle, showNudge }: Props) {
         </div>
       </div>
 
-      {/* Nudge card */}
+      {/* IF card — only for today */}
       {showNudge && (
-        <div style={{ padding: '14px 16px 0' }}>
-          <div style={{
-            background: B_COLORS.card, borderRadius: 14, padding: '14px 16px',
-            display: 'flex', alignItems: 'center', gap: 12,
-            borderLeft: `3px solid ${B_COLORS.blue}`,
-          }}>
+        <>
+          <div style={{ padding: '14px 16px 0' }}>
             <div style={{
-              width: 36, height: 36, borderRadius: 8, background: '#E5F1FF',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-            }}>💧</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.ink }}>Hydration reminder</div>
-              <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2, letterSpacing: -0.06 }}>
-                0.6L to go before evening
+              fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.inkSoft,
+              padding: '0 4px 8px', textTransform: 'uppercase', letterSpacing: -0.08,
+            }}>
+              Intermittent fasting
+            </div>
+            <div style={{ background: B_COLORS.card, borderRadius: 14, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 28, fontWeight: 600, color: B_COLORS.ink, letterSpacing: -0.5 }}>
+                    14h 08m
+                  </div>
+                  <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2 }}>of 16h fasting window</div>
+                </div>
+                <span style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.green }}>88%</span>
+              </div>
+              <div style={{ height: 6, background: B_COLORS.bg, borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: '88%', background: B_COLORS.green, borderRadius: 3 }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Last meal 7:42 PM</span>
+                <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Break 11:42 AM</span>
               </div>
             </div>
-            <span style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkFaint }}>4:12 PM</span>
           </div>
-        </div>
+        </>
       )}
-
-      {/* IF fasting card */}
-      <div style={{ padding: '14px 16px 0' }}>
-        <div style={{
-          fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.inkSoft,
-          padding: '0 4px 8px', textTransform: 'uppercase', letterSpacing: -0.08,
-        }}>
-          Intermittent fasting
-        </div>
-        <div style={{ background: B_COLORS.card, borderRadius: 14, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 28, fontWeight: 600, color: B_COLORS.ink, letterSpacing: -0.5 }}>
-                14h 08m
-              </div>
-              <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2 }}>of 16h fasting window</div>
-            </div>
-            <span style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.green }}>88%</span>
-          </div>
-          <div style={{ height: 6, background: B_COLORS.bg, borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: '88%', background: B_COLORS.green, borderRadius: 3 }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-            <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Last meal 7:42 PM</span>
-            <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Break 11:42 AM</span>
-          </div>
-        </div>
-      </div>
 
       {/* Checklist sections */}
       {SECTIONS.map(sec => {
@@ -181,18 +222,20 @@ export default function TodayScreen({ checked, toggle, showNudge }: Props) {
         <div style={{ background: B_COLORS.card, borderRadius: 14, padding: 12, display: 'flex', gap: 8 }}>
           {[
             { m: 'Breakfast', filled: true,  time: '8:14 AM' },
-            { m: 'Lunch',     filled: false, time: '—' },
-            { m: 'Dinner',    filled: false, time: '—' },
+            { m: 'Lunch',     filled: false, time: '—'       },
+            { m: 'Dinner',    filled: false, time: '—'       },
           ].map(meal => (
             <div
               key={meal.m}
               style={{
-                flex: 1, aspectRatio: '1 / 1.05', borderRadius: 10, position: 'relative', overflow: 'hidden',
+                flex: 1, aspectRatio: '1 / 1.05', borderRadius: 10,
+                position: 'relative', overflow: 'hidden',
                 background: meal.filled
                   ? 'linear-gradient(135deg, #f7d4b8 0%, #e8a87c 50%, #c9806d 100%)'
                   : B_COLORS.bg,
                 border: meal.filled ? 'none' : `1px dashed ${B_COLORS.inkFaint}`,
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 10,
+                display: 'flex', flexDirection: 'column',
+                justifyContent: 'space-between', padding: 10,
                 cursor: 'pointer',
               }}
             >
