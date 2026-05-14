@@ -266,11 +266,22 @@ export async function upsertBodyStat(userId: string, date: string, updates: { we
 export async function getFeedPosts(groupId: string, limit = 20): Promise<FeedPost[]> {
   const { data } = await getSupabase()
     .from('feed_posts')
-    .select('*, profile:profiles(id, name, tint)')
+    .select('*')
     .eq('group_id', groupId)
     .order('created_at', { ascending: false })
     .limit(limit);
-  return (data as FeedPost[]) ?? [];
+
+  if (!data || data.length === 0) return [];
+
+  const userIds = [...new Set(data.map((p: FeedPost) => p.user_id))];
+  const { data: profiles } = await getSupabase()
+    .from('profiles')
+    .select('id, name, tint')
+    .in('id', userIds);
+
+  const profileMap = Object.fromEntries((profiles ?? []).map((p: { id: string; name: string; tint: string }) => [p.id, p]));
+
+  return data.map((post: FeedPost) => ({ ...post, profile: profileMap[post.user_id] ?? undefined })) as FeedPost[];
 }
 
 export async function getMemberStreaks(
