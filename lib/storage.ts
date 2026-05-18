@@ -1,5 +1,6 @@
 const CL_PREFIX = 'fc_cl_';
 const BODY_KEY   = 'fc_body';
+const IF_KEY     = 'fc_if_lastmeal';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -101,6 +102,20 @@ export function loadWeekHistory(
     const d = isoToDate(date);
     return { day: DAY[d.getDay()], done, isToday: date === today };
   });
+}
+
+// ── Intermittent fasting ──────────────────────────────────────────────────────
+
+export function loadLastMealTime(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(IF_KEY);
+}
+
+export function saveLastMealTime(isoDatetime: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(IF_KEY, isoDatetime);
+  } catch { /* ignore */ }
 }
 
 export function saveBodyLog(entry: BodyEntry): void {

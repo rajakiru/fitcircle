@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
 import { CHECKLIST_ITEMS } from '@/lib/data';
-import { todayISO, offsetISO } from '@/lib/storage';
-import { uploadMealPhoto, createFeedPost, getUserMealPosts, type FeedPost } from '@/lib/supabase';
+import { todayISO, offsetISO, loadLastMealTime, saveLastMealTime } from '@/lib/storage';
+import { uploadMealPhoto, createFeedPost, getUserMealPosts, upsertBodyStat, getBodyStats, type FeedPost, type BodyStat } from '@/lib/supabase';
 import TripleRing from './TripleRing';
 
 type Checked = Record<string, boolean>;
@@ -48,6 +48,11 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
   const { label, isToday } = formatDate(currentDate);
 
   const [mealPosts, setMealPosts] = useState<FeedPost[]>([]);
+  const [bodyStats, setBodyStats] = useState<BodyStat[]>([]);
+  const [editingMeasure, setEditingMeasure] = useState(false);
+  const [weightInput, setWeightInput] = useState('');
+  const [waistInput, setWaistInput] = useState('');
+  const [savingMeasure, setSavingMeasure] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<'Breakfast' | 'Lunch' | 'Dinner'>('Breakfast');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -56,9 +61,27 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [lastMealTime, setLastMealTime] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const [editingIF, setEditingIF] = useState(false);
+  const [ifTimeInput, setIfTimeInput] = useState('');
+
   useEffect(() => {
     getUserMealPosts(userId, currentDate).then(setMealPosts);
   }, [userId, currentDate]);
+
+  useEffect(() => {
+    getBodyStats(userId).then(setBodyStats);
+  }, [userId]);
+
+  useEffect(() => {
+    setLastMealTime(loadLastMealTime());
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const handlePost = async () => {
     if (!groupId || !pendingFile) return;
@@ -73,6 +96,9 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
     setPendingFile(null);
     setPendingPreview(null);
     setCaption('');
+    const mealISO = new Date().toISOString();
+    saveLastMealTime(mealISO);
+    setLastMealTime(mealISO);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,6 +117,31 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
     const d = items.filter(i => checked[i.id]).length;
     return { g, d, t: items.length, pct: d / items.length };
   });
+
+  const latestStat = [...bodyStats].reverse().find(s => s.weight !== null || s.waist !== null);
+  const latestWeight = [...bodyStats].reverse().find(s => s.weight !== null)?.weight ?? null;
+  const latestWaist = [...bodyStats].reverse().find(s => s.waist !== null)?.waist ?? null;
+  const daysSinceUpdate = latestStat
+    ? Math.floor((new Date().getTime() - new Date(latestStat.date).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const showNudgeMeasure = isToday && (daysSinceUpdate === null || daysSinceUpdate >= 7);
+
+  const saveMeasure = async () => {
+    const w = parseFloat(weightInput);
+    const c = parseFloat(waistInput);
+    if (isNaN(w) && isNaN(c)) return;
+    setSavingMeasure(true);
+    await upsertBodyStat(userId, todayISO(), {
+      ...(isNaN(w) ? {} : { weight: w }),
+      ...(isNaN(c) ? {} : { waist: c }),
+    });
+    const updated = await getBodyStats(userId);
+    setBodyStats(updated);
+    setWeightInput('');
+    setWaistInput('');
+    setEditingMeasure(false);
+    setSavingMeasure(false);
+  };
 
   const canGoForward = currentDate < todayISO();
 
@@ -326,6 +377,64 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
           })}
         </div>
       </div>
+
+      {/* Measurements */}
+      {isToday && (
+        <div style={{ padding: '14px 16px 0' }}>
+          {showNudgeMeasure && !editingMeasure && (
+            <div style={{
+              background: '#FFF8EC', borderRadius: 12, padding: '10px 14px',
+              marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" stroke="#FF9500" strokeWidth="1.5"/>
+                <path d="M8 5v4M8 11v.5" stroke="#FF9500" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontFamily: B_FONT, fontSize: 13, color: '#B36B00', flex: 1 }}>
+                {daysSinceUpdate === null ? 'Log your first measurements' : `Update your measurements — ${daysSinceUpdate} days since last update`}
+              </span>
+            </div>
+          )}
+          <div style={{ background: B_COLORS.card, borderRadius: 14, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingMeasure ? 14 : 0 }}>
+              <div style={{ display: 'flex', gap: 20 }}>
+                <div>
+                  <div style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Weight</div>
+                  <div style={{ fontFamily: B_FONT, fontSize: 20, fontWeight: 700, color: B_COLORS.ink, marginTop: 2 }}>
+                    {latestWeight !== null ? `${latestWeight} kg` : <span style={{ color: B_COLORS.inkFaint }}>—</span>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Waist</div>
+                  <div style={{ fontFamily: B_FONT, fontSize: 20, fontWeight: 700, color: B_COLORS.ink, marginTop: 2 }}>
+                    {latestWaist !== null ? `${latestWaist} cm` : <span style={{ color: B_COLORS.inkFaint }}>—</span>}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => { setEditingMeasure(v => !v); setWeightInput(''); setWaistInput(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.green }}>
+                {editingMeasure ? 'Cancel' : 'Update'}
+              </button>
+            </div>
+            {editingMeasure && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input type="number" step="0.1" placeholder="Weight kg"
+                  value={weightInput} onChange={e => setWeightInput(e.target.value)}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
+                />
+                <input type="number" step="0.5" placeholder="Waist cm"
+                  value={waistInput} onChange={e => setWaistInput(e.target.value)}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
+                />
+                <button onClick={saveMeasure} disabled={savingMeasure}
+                  style={{ padding: '10px 16px', borderRadius: 10, background: B_COLORS.green, border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: '#fff' }}>
+                  {savingMeasure ? '…' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* hidden file input */}
       <input

@@ -2,16 +2,19 @@
 
 import { useState } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
-import { upsertProfile, createGroup, joinGroup } from '@/lib/supabase';
+import { upsertProfile, createGroup, joinGroup, upsertBodyStat } from '@/lib/supabase';
+import { todayISO } from '@/lib/storage';
 
 const TINTS = ['#0F4C3A', '#FF2D55', '#007AFF', '#FF9500', '#AF52DE', '#34C759'];
 
 type Props = { userId: string; onComplete: () => void };
 
 export default function OnboardingScreen({ userId, onComplete }: Props) {
-  const [step, setStep] = useState<'profile' | 'group'>('profile');
+  const [step, setStep] = useState<'profile' | 'measurements' | 'group'>('profile');
   const [name, setName] = useState('');
   const [tint, setTint] = useState(TINTS[0]);
+  const [weight, setWeight] = useState('');
+  const [waist, setWaist] = useState('');
   const [groupMode, setGroupMode] = useState<'create' | 'join'>('create');
   const [groupName, setGroupName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -24,10 +27,22 @@ export default function OnboardingScreen({ userId, onComplete }: Props) {
     setLoading(true);
     try {
       await upsertProfile(userId, { name: name.trim(), tint });
-      setStep('group');
+      setStep('measurements');
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveMeasurements = async () => {
+    const w = parseFloat(weight);
+    const c = parseFloat(waist);
+    if (!isNaN(w) || !isNaN(c)) {
+      await upsertBodyStat(userId, todayISO(), {
+        ...(isNaN(w) ? {} : { weight: w }),
+        ...(isNaN(c) ? {} : { waist: c }),
+      });
+    }
+    setStep('group');
   };
 
   const saveGroup = async () => {
@@ -59,14 +74,16 @@ export default function OnboardingScreen({ userId, onComplete }: Props) {
     }}>
       <div style={{ padding: '60px 24px 40px' }}>
         <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.green, fontWeight: 600, letterSpacing: 0.5, marginBottom: 6 }}>
-          STEP {step === 'profile' ? '1' : '2'} OF 2
+          STEP {step === 'profile' ? '1' : step === 'measurements' ? '2' : '3'} OF 3
         </div>
         <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 30, fontWeight: 700, color: B_COLORS.ink, letterSpacing: -0.5, marginBottom: 6 }}>
-          {step === 'profile' ? 'Your profile' : 'Your circle'}
+          {step === 'profile' ? 'Your profile' : step === 'measurements' ? 'Your measurements' : 'Your circle'}
         </div>
         <div style={{ fontFamily: B_FONT, fontSize: 15, color: B_COLORS.inkSoft }}>
           {step === 'profile'
             ? 'How should your circle know you?'
+            : step === 'measurements'
+            ? 'Optional — you can always update these later.'
             : 'Create a new circle or join an existing one.'}
         </div>
       </div>
@@ -99,6 +116,27 @@ export default function OnboardingScreen({ userId, onComplete }: Props) {
               </div>
             </div>
           </>
+        ) : step === 'measurements' ? (
+          <>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Weight (kg)</div>
+                <input
+                  type="number" step="0.1" placeholder="e.g. 65"
+                  value={weight} onChange={e => setWeight(e.target.value)}
+                  style={{ ...inputStyle, textTransform: 'none', letterSpacing: 0 }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Waist (cm)</div>
+                <input
+                  type="number" step="0.5" placeholder="e.g. 80"
+                  value={waist} onChange={e => setWaist(e.target.value)}
+                  style={{ ...inputStyle, textTransform: 'none', letterSpacing: 0 }}
+                />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <input
@@ -120,7 +158,7 @@ export default function OnboardingScreen({ userId, onComplete }: Props) {
         )}
 
         <button
-          onClick={step === 'profile' ? saveProfile : saveGroup}
+          onClick={step === 'profile' ? saveProfile : step === 'measurements' ? saveMeasurements : saveGroup}
           disabled={loading}
           style={{
             padding: '15px 0', borderRadius: 14, border: 'none',
@@ -130,7 +168,7 @@ export default function OnboardingScreen({ userId, onComplete }: Props) {
             fontFamily: B_FONT, fontSize: 16, fontWeight: 600,
           }}
         >
-          {loading ? 'Please wait…' : step === 'profile' ? 'Continue' : 'Get started'}
+          {loading ? 'Please wait…' : step === 'profile' ? 'Continue' : step === 'measurements' ? 'Continue' : 'Get started'}
         </button>
 
         {step === 'group' && (

@@ -82,6 +82,10 @@ export async function updatePassword(newPassword: string) {
   return getSupabase().auth.updateUser({ password: newPassword });
 }
 
+export async function deleteAccount() {
+  return getSupabase().rpc('delete_user');
+}
+
 export function onAuthChange(cb: (event: AuthChangeEvent, session: Session | null) => void) {
   return getSupabase().auth.onAuthStateChange(cb);
 }

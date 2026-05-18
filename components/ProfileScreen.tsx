@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
-import { signOut, getProfile, getGroup, getGroupMembers, upsertProfile, createGroup, joinGroup, leaveGroup, deleteGroup, removeFromGroup, type Profile, type Group } from '@/lib/supabase';
+import { signOut, getProfile, getGroup, getGroupMembers, upsertProfile, createGroup, joinGroup, leaveGroup, deleteGroup, removeFromGroup, deleteAccount, type Profile, type Group } from '@/lib/supabase';
 
 const TINTS = ['#0F4C3A', '#FF2D55', '#007AFF', '#FF9500', '#AF52DE', '#34C759'];
 
@@ -322,6 +322,24 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
           }}
         >
           Sign out
+        </button>
+      </div>
+
+      {/* Delete account */}
+      <div style={{ padding: '12px 16px 0' }}>
+        <button
+          onClick={async () => {
+            if (!confirm('Permanently delete your account? This cannot be undone.')) return;
+            await deleteAccount();
+            onSignOut();
+          }}
+          style={{
+            width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
+            cursor: 'pointer', background: 'none',
+            fontFamily: B_FONT, fontSize: 14, fontWeight: 400, color: B_COLORS.inkSoft,
+          }}
+        >
+          Delete account
         </button>
       </div>
     </div>
