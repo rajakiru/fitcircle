@@ -41,44 +41,46 @@ function NoCircleCard({ userId, onCreated, onJoined }: {
   };
 
   return (
-    <div style={{ background: B_COLORS.card, borderRadius: 16, padding: '16px' }}>
-      <div style={{ display: 'flex', background: B_COLORS.bg, borderRadius: 10, padding: 3, marginBottom: 14 }}>
-        {(['create', 'join'] as const).map(m => (
-          <button key={m} onClick={() => { setMode(m); setValue(''); setError(''); }}
+    <div style={{ background: B_COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 16px 0' }}>
+        <div style={{ display: 'flex', background: B_COLORS.bg, borderRadius: 10, padding: 3, marginBottom: 14 }}>
+          {(['create', 'join'] as const).map(m => (
+            <button key={m} onClick={() => { setMode(m); setValue(''); setError(''); }}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
+                background: mode === m ? B_COLORS.green : 'transparent',
+                color: mode === m ? '#fff' : B_COLORS.inkSoft,
+              }}>
+              {m === 'create' ? 'Create circle' : 'Join circle'}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10, paddingBottom: 16 }}>
+          <input
+            placeholder={mode === 'create' ? 'Circle name' : 'INVITE CODE'}
+            value={value}
+            onChange={e => setValue(mode === 'join' ? e.target.value.toUpperCase() : e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && submit()}
+            maxLength={mode === 'join' ? 6 : undefined}
             style={{
-              flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
-              background: mode === m ? B_COLORS.green : 'transparent',
-              color: mode === m ? '#fff' : B_COLORS.inkSoft,
-            }}>
-            {m === 'create' ? 'Create circle' : 'Join circle'}
+              flex: 1, padding: '11px 14px', borderRadius: 10,
+              border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg,
+              fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none',
+              letterSpacing: mode === 'join' ? 2 : 0,
+            }}
+          />
+          <button onClick={submit} disabled={loading} style={{
+            padding: '11px 18px', borderRadius: 10, border: 'none',
+            cursor: loading ? 'default' : 'pointer',
+            background: B_COLORS.green, color: '#fff',
+            fontFamily: B_FONT, fontSize: 14, fontWeight: 600,
+          }}>
+            {loading ? '…' : mode === 'create' ? 'Create' : 'Join'}
           </button>
-        ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <input
-          placeholder={mode === 'create' ? 'Circle name' : 'INVITE CODE'}
-          value={value}
-          onChange={e => setValue(mode === 'join' ? e.target.value.toUpperCase() : e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && submit()}
-          maxLength={mode === 'join' ? 6 : undefined}
-          style={{
-            flex: 1, padding: '11px 14px', borderRadius: 10,
-            border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg,
-            fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none',
-            letterSpacing: mode === 'join' ? 2 : 0,
-          }}
-        />
-        <button onClick={submit} disabled={loading} style={{
-          padding: '11px 18px', borderRadius: 10, border: 'none',
-          cursor: loading ? 'default' : 'pointer',
-          background: B_COLORS.green, color: '#fff',
-          fontFamily: B_FONT, fontSize: 14, fontWeight: 600,
-        }}>
-          {loading ? '…' : mode === 'create' ? 'Create' : 'Join'}
-        </button>
-      </div>
-      {error && <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.red, marginTop: 8 }}>{error}</div>}
+      {error && <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.red, padding: '0 16px 14px' }}>{error}</div>}
     </div>
   );
 }
@@ -148,10 +150,13 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
     );
   }
 
+  const activeTint = editing ? editTint : profile.tint;
+
   return (
-    <div style={{ background: B_COLORS.bg, minHeight: '100%', paddingBottom: 24 }}>
+    <div style={{ background: B_COLORS.bg, minHeight: '100%', paddingBottom: 40 }}>
+
       {/* Header */}
-      <div style={{ padding: '52px 16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div style={{ padding: '52px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 34, fontWeight: 700, color: B_COLORS.ink, letterSpacing: -0.5 }}>
           Profile
         </div>
@@ -165,30 +170,46 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
 
       {/* Profile card */}
       <div style={{ padding: '0 16px' }}>
-        <div style={{ background: B_COLORS.card, borderRadius: 16, padding: '20px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: editing ? 16 : 0 }}>
-            <Avatar name={editing ? editName : profile.name} tint={editing ? editTint : profile.tint} size={56} />
-            {editing ? (
-              <input
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                style={{
-                  flex: 1, padding: '10px 14px', borderRadius: 10,
-                  border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg,
-                  fontFamily: B_FONT, fontSize: 17, fontWeight: 600, color: B_COLORS.ink, outline: 'none',
-                }}
-              />
-            ) : (
-              <div>
-                <div style={{ fontFamily: B_FONT, fontSize: 20, fontWeight: 700, color: B_COLORS.ink }}>{profile.name || 'No name'}</div>
-                <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft, marginTop: 2 }}>{group?.name ?? 'No circle'}</div>
-              </div>
-            )}
+        <div style={{ background: B_COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
+          {/* Colored accent bar */}
+          <div style={{ height: 5, background: activeTint }} />
+          <div style={{ padding: '20px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Avatar name={editing ? editName : profile.name} tint={activeTint} size={64} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {editing ? (
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: 10, boxSizing: 'border-box',
+                    border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg,
+                    fontFamily: B_FONT, fontSize: 17, fontWeight: 600, color: B_COLORS.ink, outline: 'none',
+                  }}
+                />
+              ) : (
+                <>
+                  <div style={{ fontFamily: B_FONT, fontSize: 22, fontWeight: 700, color: B_COLORS.ink, letterSpacing: -0.3 }}>
+                    {profile.name || 'No name'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                    {group && (
+                      <div style={{
+                        width: 8, height: 8, borderRadius: 4, background: B_COLORS.green, flexShrink: 0,
+                      }} />
+                    )}
+                    <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft }}>
+                      {group?.name ?? 'No circle'}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {editing && (
-            <>
-              <div style={{ fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>
+            <div style={{ padding: '0 16px 20px' }}>
+              <div style={{ fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
                 Colour
               </div>
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -211,7 +232,7 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
               >
                 Save
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -229,119 +250,147 @@ export default function ProfileScreen({ userId, onSignOut }: Props) {
             onJoined={(g, ms) => { setGroup(g); setMembers(ms); }}
           />
         ) : (
-          <div style={{ background: B_COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
-            {/* Invite code row */}
-            <button onClick={copyCode} style={{
-              width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-              padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              borderBottom: `0.5px solid ${B_COLORS.hairline}`,
-            }}>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.ink }}>
-                  {group.name} · Invite code
-                </div>
-                <div style={{ fontFamily: B_FONT, fontSize: 20, fontWeight: 700, color: B_COLORS.green, letterSpacing: 4, marginTop: 2 }}>
+          <>
+            {/* Invite code card */}
+            <div style={{ background: B_COLORS.card, borderRadius: 16, padding: '16px', marginBottom: 10 }}>
+              <div style={{ fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
+                {group.name} · Invite code
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  flex: 1, background: B_COLORS.bg, borderRadius: 10, padding: '12px 14px',
+                  fontFamily: B_FONT, fontSize: 22, fontWeight: 700, color: B_COLORS.green,
+                  letterSpacing: 6,
+                }}>
                   {group.invite_code}
                 </div>
+                <button onClick={copyCode} style={{
+                  padding: '12px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  background: copied ? B_COLORS.greenSoft : B_COLORS.bg,
+                  fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
+                  color: copied ? B_COLORS.green : B_COLORS.inkSoft,
+                  transition: 'background 0.15s',
+                  flexShrink: 0,
+                }}>
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
               </div>
-              <div style={{
-                padding: '6px 12px', borderRadius: 8,
-                background: copied ? B_COLORS.greenSoft : B_COLORS.bg,
-                fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
-                color: copied ? B_COLORS.green : B_COLORS.inkSoft,
-              }}>
-                {copied ? 'Copied!' : 'Copy'}
+              <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkFaint, marginTop: 8 }}>
+                Share this code so others can join your circle
               </div>
-            </button>
+            </div>
 
-            {/* Members list */}
-            {members.map((m, i) => (
-              <div key={m.id} style={{
-                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-                borderBottom: i === members.length - 1 ? 'none' : `0.5px solid ${B_COLORS.hairline}`,
+            {/* Members card */}
+            <div style={{ background: B_COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
+              <div style={{
+                padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                borderBottom: `0.5px solid ${B_COLORS.hairline}`,
               }}>
-                <Avatar name={m.name} tint={m.tint} size={36} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: B_FONT, fontSize: 15, fontWeight: 600, color: B_COLORS.ink }}>
-                    {m.name || 'Member'}
-                    {m.id === userId && <span style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, fontWeight: 400, marginLeft: 6 }}>you</span>}
+                <span style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.inkSoft, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  Members
+                </span>
+                <span style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft }}>
+                  {members.length}
+                </span>
+              </div>
+
+              {members.map((m, i) => (
+                <div key={m.id} style={{
+                  padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+                  borderBottom: i === members.length - 1 ? 'none' : `0.5px solid ${B_COLORS.hairline}`,
+                }}>
+                  <Avatar name={m.name} tint={m.tint} size={40} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: B_FONT, fontSize: 15, fontWeight: 600, color: B_COLORS.ink }}>
+                      {m.name || 'Member'}
+                    </div>
+                    {m.id === userId && (
+                      <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 1 }}>you</div>
+                    )}
                   </div>
+                  {group?.created_by === userId && m.id !== userId && (
+                    <button onClick={async () => {
+                      if (!confirm(`Remove ${m.name || 'this member'} from the circle?`)) return;
+                      await removeFromGroup(m.id);
+                      setMembers(prev => prev.filter(x => x.id !== m.id));
+                    }} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.red,
+                      padding: '4px 8px', borderRadius: 8,
+                    }}>Remove</button>
+                  )}
                 </div>
-                {group?.created_by === userId && m.id !== userId && (
+              ))}
+
+              {/* Leave / Delete */}
+              <div style={{ borderTop: `0.5px solid ${B_COLORS.hairline}` }}>
+                {group.created_by === userId ? (
                   <button onClick={async () => {
-                    if (!confirm(`Remove ${m.name || 'this member'} from the circle?`)) return;
-                    await removeFromGroup(m.id);
-                    setMembers(prev => prev.filter(x => x.id !== m.id));
+                    if (!confirm('Delete this circle? All members will be removed.')) return;
+                    await deleteGroup(group.id);
+                    setGroup(null); setMembers([]);
                   }} style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: B_FONT, fontSize: 12, fontWeight: 600, color: B_COLORS.red,
-                    padding: '4px 8px', borderRadius: 8,
-                  }}>Remove</button>
+                    width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+                    cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.red,
+                  }}>
+                    Delete circle
+                  </button>
+                ) : (
+                  <button onClick={async () => {
+                    if (!confirm('Leave this circle?')) return;
+                    await leaveGroup(userId);
+                    setGroup(null); setMembers([]);
+                  }} style={{
+                    width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+                    cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.red,
+                  }}>
+                    Leave circle
+                  </button>
                 )}
               </div>
-            ))}
-
-            {/* Leave / Delete */}
-            {group.created_by === userId ? (
-              <button onClick={async () => {
-                if (!confirm('Delete this circle? All members will be removed.')) return;
-                await deleteGroup(group.id);
-                setGroup(null); setMembers([]);
-              }} style={{
-                width: '100%', padding: '14px 16px', background: 'none', border: 'none',
-                borderTop: `0.5px solid ${B_COLORS.hairline}`,
-                cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.red,
-              }}>
-                Delete circle
-              </button>
-            ) : (
-              <button onClick={async () => {
-                if (!confirm('Leave this circle?')) return;
-                await leaveGroup(userId);
-                setGroup(null); setMembers([]);
-              }} style={{
-                width: '100%', padding: '14px 16px', background: 'none', border: 'none',
-                borderTop: `0.5px solid ${B_COLORS.hairline}`,
-                cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.red,
-              }}>
-                Leave circle
-              </button>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Sign out */}
+      {/* Account section */}
       <div style={{ padding: '28px 16px 0' }}>
-        <button
-          onClick={async () => { await signOut(); onSignOut(); }}
-          style={{
-            width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
-            cursor: 'pointer', background: B_COLORS.card,
-            fontFamily: B_FONT, fontSize: 16, fontWeight: 600, color: B_COLORS.red,
-          }}
-        >
-          Sign out
-        </button>
+        <div style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.inkSoft, padding: '0 4px 8px', textTransform: 'uppercase', letterSpacing: -0.08 }}>
+          Account
+        </div>
+        <div style={{ background: B_COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
+          <button
+            onClick={async () => { await signOut(); onSignOut(); }}
+            style={{
+              width: '100%', padding: '16px', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              borderBottom: `0.5px solid ${B_COLORS.hairline}`,
+            }}
+          >
+            <span style={{ fontFamily: B_FONT, fontSize: 15, fontWeight: 600, color: B_COLORS.red }}>Sign out</span>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+              <path d="M1 1l5 5-5 5" stroke={B_COLORS.inkFaint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            onClick={async () => {
+              if (!confirm('Permanently delete your account? This cannot be undone.')) return;
+              await deleteAccount();
+              onSignOut();
+            }}
+            style={{
+              width: '100%', padding: '16px', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}
+          >
+            <span style={{ fontFamily: B_FONT, fontSize: 15, color: B_COLORS.inkSoft }}>Delete account</span>
+            <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+              <path d="M1 1l5 5-5 5" stroke={B_COLORS.inkFaint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* Delete account */}
-      <div style={{ padding: '12px 16px 0' }}>
-        <button
-          onClick={async () => {
-            if (!confirm('Permanently delete your account? This cannot be undone.')) return;
-            await deleteAccount();
-            onSignOut();
-          }}
-          style={{
-            width: '100%', padding: '14px 0', borderRadius: 14, border: 'none',
-            cursor: 'pointer', background: 'none',
-            fontFamily: B_FONT, fontSize: 14, fontWeight: 400, color: B_COLORS.inkSoft,
-          }}
-        >
-          Delete account
-        </button>
-      </div>
     </div>
   );
 }
