@@ -126,6 +126,45 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
     : null;
   const showNudgeMeasure = isToday && (daysSinceUpdate === null || daysSinceUpdate >= 7);
 
+  const FAST_HOURS = 16;
+
+  function formatTime12(d: Date): string {
+    const h = d.getHours(), m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  }
+
+  function toDatetimeLocal(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  const fastingInfo = (() => {
+    if (!lastMealTime) return null;
+    const last = new Date(lastMealTime);
+    const breakAt = new Date(last.getTime() + FAST_HOURS * 3_600_000);
+    const elapsedMs = now.getTime() - last.getTime();
+    if (elapsedMs < 0) return null;
+    const elapsedH = Math.floor(elapsedMs / 3_600_000);
+    const elapsedM = Math.floor((elapsedMs % 3_600_000) / 60_000);
+    const pct = Math.min(100, Math.round((elapsedMs / (FAST_HOURS * 3_600_000)) * 100));
+    return {
+      elapsed: `${elapsedH}h ${String(elapsedM).padStart(2, '0')}m`,
+      pct,
+      lastMealLabel: formatTime12(last),
+      breakLabel: formatTime12(breakAt),
+      complete: elapsedMs >= FAST_HOURS * 3_600_000,
+    };
+  })();
+
+  const saveIFTime = () => {
+    if (!ifTimeInput) return;
+    const iso = new Date(ifTimeInput).toISOString();
+    saveLastMealTime(iso);
+    setLastMealTime(iso);
+    setEditingIF(false);
+  };
+
   const saveMeasure = async () => {
     const w = parseFloat(weightInput);
     const c = parseFloat(waistInput);
@@ -236,23 +275,86 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
             }}>
               Intermittent fasting
             </div>
-            <div style={{ background: B_COLORS.card, borderRadius: 14, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 28, fontWeight: 600, color: B_COLORS.ink, letterSpacing: -0.5 }}>
-                    14h 08m
+            <div
+              onClick={() => {
+                if (!editingIF) {
+                  setIfTimeInput(toDatetimeLocal(lastMealTime ? new Date(lastMealTime) : now));
+                  setEditingIF(true);
+                }
+              }}
+              style={{ background: B_COLORS.card, borderRadius: 14, padding: '18px 20px', cursor: editingIF ? 'default' : 'pointer' }}
+            >
+              {editingIF ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft }}>When was your last meal?</div>
+                  <input
+                    type="datetime-local"
+                    value={ifTimeInput}
+                    max={toDatetimeLocal(now)}
+                    onChange={e => setIfTimeInput(e.target.value)}
+                    style={{
+                      fontFamily: B_FONT, fontSize: 14, color: B_COLORS.ink,
+                      background: B_COLORS.bg, border: 'none', borderRadius: 8,
+                      padding: '10px 12px', width: '100%', boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); saveIFTime(); }}
+                      style={{
+                        flex: 1, fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
+                        color: '#fff', background: B_COLORS.green, border: 'none',
+                        borderRadius: 8, padding: '10px 0', cursor: 'pointer',
+                      }}
+                    >Save</button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setEditingIF(false); }}
+                      style={{
+                        flex: 1, fontFamily: B_FONT, fontSize: 13, fontWeight: 600,
+                        color: B_COLORS.inkSoft, background: B_COLORS.bg, border: 'none',
+                        borderRadius: 8, padding: '10px 0', cursor: 'pointer',
+                      }}
+                    >Cancel</button>
                   </div>
-                  <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2 }}>of 16h fasting window</div>
                 </div>
-                <span style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.green }}>88%</span>
-              </div>
-              <div style={{ height: 6, background: B_COLORS.bg, borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '88%', background: B_COLORS.green, borderRadius: 3 }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Last meal 7:42 PM</span>
-                <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Break 11:42 AM</span>
-              </div>
+              ) : fastingInfo ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 28, fontWeight: 600, color: B_COLORS.ink, letterSpacing: -0.5 }}>
+                        {fastingInfo.complete ? 'Complete' : fastingInfo.elapsed}
+                      </div>
+                      <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2 }}>
+                        {fastingInfo.complete ? 'Fasting window complete' : `of ${FAST_HOURS}h fasting window`}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.green }}>{fastingInfo.pct}%</span>
+                  </div>
+                  <div style={{ height: 6, background: B_COLORS.bg, borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${fastingInfo.pct}%`, background: B_COLORS.green, borderRadius: 3 }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                    <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Last meal {fastingInfo.lastMealLabel}</span>
+                    <span style={{ fontFamily: B_FONT, fontSize: 11, color: B_COLORS.inkSoft }}>Break {fastingInfo.breakLabel}</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 18,
+                    background: B_COLORS.greenSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 3v5l3 3" stroke={B_COLORS.green} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="8" cy="8" r="6.5" stroke={B_COLORS.green} strokeWidth="1.5"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.ink }}>Log last meal time</div>
+                    <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 2 }}>Tap to start tracking your {FAST_HOURS}h fast</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
