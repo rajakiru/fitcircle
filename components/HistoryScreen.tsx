@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { B_COLORS, B_FONT, B_FONT_DISPLAY } from '@/lib/colors';
-import { CHECKLIST_ITEMS, WEIGHT_TRACK } from '@/lib/data';
-import { WeightPoint } from '@/lib/data';
+import { CHECKLIST_ITEMS } from '@/lib/data';
 import { todayISO, isoToDate } from '@/lib/storage';
 import {
   getMonthCompletion, getBodyStats, upsertBodyStat, deleteBodyStat, getWeekHistory, getMemberStreaks,
   type BodyStat, type Profile,
 } from '@/lib/supabase';
 import MonthCalendar from './MonthCalendar';
-import LineChart from './LineChart';
 
 type Props = { userId: string; groupId: string | null; onJumpToDate: (date: string) => void };
 
@@ -32,24 +30,48 @@ function sectionHeader(title: string, right?: React.ReactNode) {
   );
 }
 
-function toWeightPoints(logs: BodyStat[]): WeightPoint[] {
-  const withWeight = logs.filter(l => l.weight !== null);
-  if (withWeight.length < 2) return WEIGHT_TRACK;
-  return withWeight.map(l => {
-    const d = isoToDate(l.date);
-    const label = `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}`;
-    return { w: label, kg: l.weight!, waist: l.waist ?? 84 };
-  });
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function BarChart({ points, color, unit }: { points: { label: string; value: number }[]; color: string; unit: string }) {
+  if (points.length === 0) return null;
+  const vals = points.map(p => p.value);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const BAR_H = 64;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: BAR_H + 32 }}>
+        {points.map((p, i) => {
+          const isLast = i === points.length - 1;
+          const h = Math.max(8, ((p.value - min) / range) * BAR_H * 0.8 + BAR_H * 0.2);
+          return (
+            <div key={p.label + i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%' }}>
+              <span style={{ fontFamily: B_FONT, fontSize: 9, color: B_COLORS.inkSoft, fontVariantNumeric: 'tabular-nums' }}>
+                {isLast ? `${p.value}` : ''}
+              </span>
+              <div style={{ width: '100%', height: h, borderRadius: 4, background: isLast ? color : `${color}55` }} />
+              <span style={{ fontFamily: B_FONT, fontSize: 9, color: isLast ? B_COLORS.ink : B_COLORS.inkSoft, fontWeight: isLast ? 600 : 400, textAlign: 'center', lineHeight: 1.2 }}>
+                {p.label.split(' ')[1]}
+                <br />{p.label.split(' ')[0]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontFamily: B_FONT, fontSize: 10, color: B_COLORS.inkSoft, marginTop: 4, textAlign: 'right' }}>{unit}</div>
+    </div>
+  );
 }
 
-function toWaistPoints(logs: BodyStat[]): WeightPoint[] {
-  const withWaist = logs.filter(l => l.waist !== null);
-  if (withWaist.length < 2) return WEIGHT_TRACK;
-  return withWaist.map(l => {
-    const d = isoToDate(l.date);
-    const label = `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}`;
-    return { w: label, kg: l.weight ?? 71, waist: l.waist! };
-  });
+function toBarPoints(logs: BodyStat[], field: 'weight' | 'waist'): { label: string; value: number }[] {
+  return logs
+    .filter(l => l[field] !== null)
+    .slice(-10)
+    .map(l => {
+      const d = isoToDate(l.date);
+      return { label: `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`, value: l[field] as number };
+    });
 }
 
 export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) {
@@ -136,12 +158,8 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
   const waistDelta  = (latestWaist !== null && firstWaist !== null && waistLogs.length > 1)
     ? +(latestWaist - firstWaist).toFixed(0) : null;
 
-  const weightPoints = toWeightPoints(bodyLogs);
-  const waistPoints  = toWaistPoints(bodyLogs);
-
-  const wWeights = weightPoints.map(p => p.kg);
-  const wMin = Math.min(...wWeights) - 0.3;
-  const wMax = Math.max(...wWeights) + 0.3;
+  const weightPoints = toBarPoints(bodyLogs, 'weight');
+  const waistPoints  = toBarPoints(bodyLogs, 'waist');
 
   const sortedStreaks = [...memberStreaks].sort((a, b) => b.streak - a.streak);
 
@@ -285,14 +303,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
               ))}
             </div>
           ) : weightLogs.length > 0 ? (
-            <div style={{ marginTop: 14 }}>
-              <LineChart data={weightPoints} field="kg" min={wMin} max={wMax} color={B_COLORS.green} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                {weightPoints.filter((_, i) => i % 2 === 0).map(w => (
-                  <span key={w.w} style={{ fontFamily: B_FONT, fontSize: 10, color: B_COLORS.inkSoft }}>{w.w}</span>
-                ))}
-              </div>
-            </div>
+            <BarChart points={weightPoints} color={B_COLORS.green} unit="kg" />
           ) : null}
         </div>
       </div>
@@ -359,17 +370,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
               ))}
             </div>
           ) : waistLogs.length > 0 ? (
-            <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-end', gap: 6, height: 60 }}>
-              {waistPoints.map((w, i) => (
-                <div key={w.w} style={{
-                  flex: 1,
-                  height: `${Math.max(4, ((w.waist - (Math.min(...waistPoints.map(p => p.waist)) - 1)) /
-                    (Math.max(...waistPoints.map(p => p.waist)) - Math.min(...waistPoints.map(p => p.waist)) + 2)) * 60)}px`,
-                  background: i === waistPoints.length - 1 ? '#A8C926' : 'rgba(168,201,38,0.4)',
-                  borderRadius: 3,
-                }} />
-              ))}
-            </div>
+            <BarChart points={waistPoints} color="#A8C926" unit="cm" />
           ) : null}
         </div>
       </div>
