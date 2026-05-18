@@ -32,42 +32,63 @@ function sectionHeader(title: string, right?: React.ReactNode) {
 
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function BarChart({ points, color, unit }: { points: { label: string; value: number }[]; color: string; unit: string }) {
+function TrendChart({ points, color, unit }: { points: { label: string; value: number }[]; color: string; unit: string }) {
   if (points.length === 0) return null;
+  const W = 320, H = 90, PAD = { t: 16, r: 8, b: 28, l: 8 };
   const vals = points.map(p => p.value);
   const min = Math.min(...vals);
   const max = Math.max(...vals);
   const range = max - min || 1;
-  const BAR_H = 64;
+  const cx = (i: number) => PAD.l + (i / Math.max(points.length - 1, 1)) * (W - PAD.l - PAD.r);
+  const cy = (v: number) => PAD.t + (1 - (v - min) / range) * (H - PAD.t - PAD.b);
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${cx(i)},${cy(p.value)}`).join(' ');
+  const fillPath = points.length > 1
+    ? `${linePath} L${cx(points.length - 1)},${H - PAD.b} L${cx(0)},${H - PAD.b} Z`
+    : '';
+
+  const id = `grad-${color.replace('#', '')}`;
+
   return (
     <div style={{ marginTop: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: BAR_H + 32 }}>
-        {points.map((p, i) => {
-          const isLast = i === points.length - 1;
-          const h = Math.max(8, ((p.value - min) / range) * BAR_H * 0.8 + BAR_H * 0.2);
-          return (
-            <div key={p.label + i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%' }}>
-              <span style={{ fontFamily: B_FONT, fontSize: 9, color: B_COLORS.inkSoft, fontVariantNumeric: 'tabular-nums' }}>
-                {isLast ? `${p.value}` : ''}
-              </span>
-              <div style={{ width: '100%', height: h, borderRadius: 4, background: isLast ? color : `${color}55` }} />
-              <span style={{ fontFamily: B_FONT, fontSize: 9, color: isLast ? B_COLORS.ink : B_COLORS.inkSoft, fontWeight: isLast ? 600 : 400, textAlign: 'center', lineHeight: 1.2 }}>
-                {p.label.split(' ')[1]}
-                <br />{p.label.split(' ')[0]}
-              </span>
-            </div>
-          );
-        })}
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {fillPath && <path d={fillPath} fill={`url(#${id})`} />}
+        {points.length > 1 && <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={cx(i)} cy={cy(p.value)} r={i === points.length - 1 ? 4 : 3}
+              fill={i === points.length - 1 ? color : '#fff'} stroke={color} strokeWidth="2" />
+            {(i === 0 || i === points.length - 1) && (
+              <text x={cx(i)} y={cy(p.value) - 8} textAnchor="middle"
+                style={{ fontFamily: B_FONT, fontSize: 10, fill: B_COLORS.inkSoft, fontVariantNumeric: 'tabular-nums' }}>
+                {p.value}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+        {points.map((p, i) => (i === 0 || i === points.length - 1) && (
+          <span key={i} style={{ fontFamily: B_FONT, fontSize: 10, color: i === points.length - 1 ? B_COLORS.ink : B_COLORS.inkSoft, fontWeight: i === points.length - 1 ? 600 : 400 }}>
+            {p.label}
+          </span>
+        ))}
       </div>
-      <div style={{ fontFamily: B_FONT, fontSize: 10, color: B_COLORS.inkSoft, marginTop: 4, textAlign: 'right' }}>{unit}</div>
+      <div style={{ fontFamily: B_FONT, fontSize: 10, color: B_COLORS.inkSoft, marginTop: 2, textAlign: 'right' }}>{unit}</div>
     </div>
   );
 }
 
-function toBarPoints(logs: BodyStat[], field: 'weight' | 'waist'): { label: string; value: number }[] {
+function toLinePoints(logs: BodyStat[], field: 'weight' | 'waist'): { label: string; value: number }[] {
   return logs
     .filter(l => l[field] !== null)
-    .slice(-10)
+    .slice(-12)
     .map(l => {
       const d = isoToDate(l.date);
       return { label: `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`, value: l[field] as number };
@@ -162,8 +183,8 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
   const waistDelta  = (latestWaist !== null && firstWaist !== null && waistLogs.length > 1)
     ? +(latestWaist - firstWaist).toFixed(0) : null;
 
-  const weightPoints = toBarPoints(bodyLogs, 'weight');
-  const waistPoints  = toBarPoints(bodyLogs, 'waist');
+  const weightPoints = toLinePoints(bodyLogs, 'weight');
+  const waistPoints  = toLinePoints(bodyLogs, 'waist');
 
   const sortedStreaks = [...memberStreaks].sort((a, b) => b.streak - a.streak);
 
@@ -317,7 +338,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
               ))}
             </div>
           ) : weightLogs.length > 0 ? (
-            <BarChart points={weightPoints} color={B_COLORS.green} unit="kg" />
+            <TrendChart points={weightPoints} color={B_COLORS.green} unit="kg" />
           ) : null}
         </div>
       </div>
@@ -394,7 +415,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
               ))}
             </div>
           ) : waistLogs.length > 0 ? (
-            <BarChart points={waistPoints} color="#A8C926" unit="cm" />
+            <TrendChart points={waistPoints} color="#A8C926" unit="cm" />
           ) : null}
         </div>
       </div>
