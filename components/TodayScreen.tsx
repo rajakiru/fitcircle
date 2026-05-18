@@ -519,17 +519,19 @@ export default function TodayScreen({ checked, toggle, showNudge, currentDate, o
               </button>
             </div>
             {editingMeasure && (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input type="number" step="0.1" placeholder="Weight kg"
-                  value={weightInput} onChange={e => setWeightInput(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
-                />
-                <input type="number" step="0.5" placeholder="Waist cm"
-                  value={waistInput} onChange={e => setWaistInput(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="number" step="0.1" placeholder="Weight kg"
+                    value={weightInput} onChange={e => setWeightInput(e.target.value)}
+                    style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
+                  />
+                  <input type="number" step="0.5" placeholder="Waist cm"
+                    value={waistInput} onChange={e => setWaistInput(e.target.value)}
+                    style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, border: `1px solid ${B_COLORS.hairline}`, background: B_COLORS.bg, fontFamily: B_FONT, fontSize: 15, color: B_COLORS.ink, outline: 'none' }}
+                  />
+                </div>
                 <button onClick={saveMeasure} disabled={savingMeasure}
-                  style={{ padding: '10px 16px', borderRadius: 10, background: B_COLORS.green, border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: '#fff' }}>
+                  style={{ width: '100%', padding: '11px 0', borderRadius: 10, background: B_COLORS.green, border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: '#fff' }}>
                   {savingMeasure ? '…' : 'Save'}
                 </button>
               </div>
