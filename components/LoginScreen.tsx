@@ -87,7 +87,12 @@ export default function LoginScreen({ onSuccess }: Props) {
     <>
       <Logo />
       <div style={{ width: '100%', background: B_COLORS.card, borderRadius: 20, padding: '28px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 44, marginBottom: 16 }}>📬</div>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: B_COLORS.greenSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <rect x="2" y="6" width="22" height="15" rx="2" stroke={B_COLORS.green} strokeWidth="1.8"/>
+            <path d="M2 9l11 7 11-7" stroke={B_COLORS.green} strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </div>
         <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 20, fontWeight: 700, color: B_COLORS.ink, marginBottom: 8 }}>
           Check your inbox
         </div>
@@ -109,7 +114,13 @@ export default function LoginScreen({ onSuccess }: Props) {
     <>
       <Logo />
       <div style={{ width: '100%', background: B_COLORS.card, borderRadius: 20, padding: '28px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 44, marginBottom: 16 }}>🔑</div>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: B_COLORS.greenSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <rect x="5" y="12" width="16" height="11" rx="2" stroke={B_COLORS.green} strokeWidth="1.8"/>
+            <path d="M9 12V8a4 4 0 018 0v4" stroke={B_COLORS.green} strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="13" cy="17.5" r="1.5" fill={B_COLORS.green}/>
+          </svg>
+        </div>
         <div style={{ fontFamily: B_FONT_DISPLAY, fontSize: 20, fontWeight: 700, color: B_COLORS.ink, marginBottom: 8 }}>
           Reset link sent
         </div>

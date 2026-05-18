@@ -78,6 +78,10 @@ export async function resetPassword(email: string) {
   return getSupabase().auth.resetPasswordForEmail(email);
 }
 
+export async function updatePassword(newPassword: string) {
+  return getSupabase().auth.updateUser({ password: newPassword });
+}
+
 export function onAuthChange(cb: (event: AuthChangeEvent, session: Session | null) => void) {
   return getSupabase().auth.onAuthStateChange(cb);
 }

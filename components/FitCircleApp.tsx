@@ -17,8 +17,9 @@ import ProfileScreen from './ProfileScreen';
 import LoginScreen from './LoginScreen';
 import OnboardingScreen from './OnboardingScreen';
 import LoadingScreen from './LoadingScreen';
+import SetPasswordScreen from './SetPasswordScreen';
 
-type Phase = 'loading' | 'auth' | 'onboarding' | 'app';
+type Phase = 'loading' | 'auth' | 'onboarding' | 'app' | 'set_password';
 
 function buildEmpty(): Record<string, boolean> {
   return Object.fromEntries(CHECKLIST_ITEMS.map(i => [i.id, false]));
@@ -55,7 +56,9 @@ export default function FitCircleApp() {
     }
 
     const { data: { subscription } } = onAuthChange((event, session) => {
-      if (!session) {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPhase('set_password');
+      } else if (!session) {
         setUserId(null);
         setGroupId(null);
         setPhase('auth');
@@ -112,6 +115,7 @@ export default function FitCircleApp() {
 
   if (phase === 'loading') return <LoadingScreen />;
   if (phase === 'auth')    return <LoginScreen onSuccess={() => { /* auth listener handles it */ }} />;
+  if (phase === 'set_password') return <SetPasswordScreen onDone={() => setPhase('auth')} />;
   if (phase === 'onboarding' && userId) {
     return <OnboardingScreen userId={userId} onComplete={handleOnboardingComplete} />;
   }
