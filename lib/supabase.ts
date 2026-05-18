@@ -277,6 +277,10 @@ export async function upsertBodyStat(userId: string, date: string, updates: { we
     .upsert({ user_id: userId, date, ...updates }, { onConflict: 'user_id,date' });
 }
 
+export async function deleteBodyStat(id: string) {
+  return getSupabase().from('body_stats').delete().eq('id', id);
+}
+
 // ── Feed ──────────────────────────────────────────────────────────────────────
 
 export async function getFeedPosts(groupId: string, limit = 20): Promise<FeedPost[]> {

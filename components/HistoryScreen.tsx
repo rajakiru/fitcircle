@@ -6,7 +6,7 @@ import { CHECKLIST_ITEMS, WEIGHT_TRACK } from '@/lib/data';
 import { WeightPoint } from '@/lib/data';
 import { todayISO, isoToDate } from '@/lib/storage';
 import {
-  getMonthCompletion, getBodyStats, upsertBodyStat, getWeekHistory, getMemberStreaks,
+  getMonthCompletion, getBodyStats, upsertBodyStat, deleteBodyStat, getWeekHistory, getMemberStreaks,
   type BodyStat, type Profile,
 } from '@/lib/supabase';
 import MonthCalendar from './MonthCalendar';
@@ -95,12 +95,16 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
     else setViewMonth(m => m + 1);
   };
 
+  const reloadStats = async () => {
+    const updated = await getBodyStats(userId);
+    setBodyLogs(updated);
+  };
+
   const saveWeight = async () => {
     const w = parseFloat(weightInput);
     if (isNaN(w)) return;
     await upsertBodyStat(userId, todayISO(), { weight: w });
-    const updated = await getBodyStats(userId);
-    setBodyLogs(updated);
+    await reloadStats();
     setWeightInput('');
     setEditingWeight(false);
   };
@@ -109,24 +113,31 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
     const c = parseFloat(waistInput);
     if (isNaN(c)) return;
     await upsertBodyStat(userId, todayISO(), { waist: c });
-    const updated = await getBodyStats(userId);
-    setBodyLogs(updated);
+    await reloadStats();
     setWaistInput('');
     setEditingWaist(false);
   };
 
+  const handleDeleteStat = async (id: string) => {
+    await deleteBodyStat(id);
+    await reloadStats();
+  };
+
+  const weightLogs = bodyLogs.filter(l => l.weight !== null);
+  const waistLogs  = bodyLogs.filter(l => l.waist  !== null);
+
+  const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].weight : null;
+  const latestWaist  = waistLogs.length  > 0 ? waistLogs[waistLogs.length - 1].waist   : null;
+  const firstWeight  = weightLogs.length > 0 ? weightLogs[0].weight : null;
+  const firstWaist   = waistLogs.length  > 0 ? waistLogs[0].waist   : null;
+
+  const weightDelta = (latestWeight !== null && firstWeight !== null && weightLogs.length > 1)
+    ? +(latestWeight - firstWeight).toFixed(1) : null;
+  const waistDelta  = (latestWaist !== null && firstWaist !== null && waistLogs.length > 1)
+    ? +(latestWaist - firstWaist).toFixed(0) : null;
+
   const weightPoints = toWeightPoints(bodyLogs);
   const waistPoints  = toWaistPoints(bodyLogs);
-
-  const latestWeight = [...bodyLogs].reverse().find(l => l.weight !== null)?.weight
-    ?? WEIGHT_TRACK[WEIGHT_TRACK.length - 1].kg;
-  const latestWaist  = [...bodyLogs].reverse().find(l => l.waist  !== null)?.waist
-    ?? WEIGHT_TRACK[WEIGHT_TRACK.length - 1].waist;
-
-  const firstWeight  = (bodyLogs.find(l => l.weight !== null)?.weight ?? WEIGHT_TRACK[0].kg);
-  const firstWaist   = (bodyLogs.find(l => l.waist  !== null)?.waist  ?? WEIGHT_TRACK[0].waist);
-  const weightDelta  = +(latestWeight! - firstWeight!).toFixed(1);
-  const waistDelta   = +(latestWaist!  - firstWaist!).toFixed(0);
 
   const wWeights = weightPoints.map(p => p.kg);
   const wMin = Math.min(...wWeights) - 0.3;
@@ -215,7 +226,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
       {/* ── Weight ── */}
       <div style={{ padding: '20px 16px 0' }}>
         {sectionHeader('Weight',
-          <button onClick={() => { setEditingWeight(v => !v); setWeightInput(''); }}
+          <button onClick={() => { setEditingWeight(v => !v); setWeightInput(latestWeight !== null ? String(latestWeight) : ''); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.blue }}>
             {editingWeight ? 'Cancel' : 'Edit'}
           </button>
@@ -225,44 +236,55 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
                 <span style={{ fontFamily: B_FONT_DISPLAY, fontSize: 36, fontWeight: 700, color: B_COLORS.ink, letterSpacing: -0.8 }}>
-                  {latestWeight}
+                  {latestWeight ?? '—'}
                 </span>
-                <span style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.inkSoft }}>kg</span>
+                {latestWeight !== null && <span style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.inkSoft }}>kg</span>}
               </div>
               <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 4 }}>
-                Last 8 weeks
+                {weightLogs.length > 0 ? 'All time' : 'No data yet'}
               </div>
             </div>
-            <div style={{
-              padding: '5px 10px', borderRadius: 8,
-              background: weightDelta <= 0 ? B_COLORS.greenSoft : '#FFF0F0',
-              fontFamily: B_FONT, fontSize: 12, fontWeight: 700,
-              color: weightDelta <= 0 ? B_COLORS.green : B_COLORS.red,
-            }}>
-              {weightDelta > 0 ? '+' : ''}{weightDelta} kg
-            </div>
+            {weightDelta !== null && (
+              <div style={{
+                padding: '5px 10px', borderRadius: 8,
+                background: weightDelta <= 0 ? B_COLORS.greenSoft : '#FFF0F0',
+                fontFamily: B_FONT, fontSize: 12, fontWeight: 700,
+                color: weightDelta <= 0 ? B_COLORS.green : B_COLORS.red,
+              }}>
+                {weightDelta > 0 ? '+' : ''}{weightDelta} kg
+              </div>
+            )}
           </div>
 
           {editingWeight ? (
-            <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-              <input
-                type="number" step="0.1" placeholder="kg"
-                value={weightInput}
-                onChange={e => setWeightInput(e.target.value)}
-                autoFocus
-                style={{
-                  flex: 1, fontFamily: B_FONT, fontSize: 16, color: B_COLORS.ink,
-                  background: B_COLORS.bg, border: `0.5px solid ${B_COLORS.hairline}`,
-                  borderRadius: 8, padding: '10px 12px', outline: 'none',
-                }}
-              />
-              <button onClick={saveWeight} style={{
-                padding: '10px 20px', borderRadius: 8, background: B_COLORS.green,
-                border: 'none', cursor: 'pointer', fontFamily: B_FONT,
-                fontSize: 14, fontWeight: 600, color: '#fff',
-              }}>Save</button>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+                <input
+                  type="number" step="0.1" placeholder="kg"
+                  value={weightInput}
+                  onChange={e => setWeightInput(e.target.value)}
+                  autoFocus
+                  style={{
+                    flex: 1, fontFamily: B_FONT, fontSize: 16, color: B_COLORS.ink,
+                    background: B_COLORS.bg, border: `0.5px solid ${B_COLORS.hairline}`,
+                    borderRadius: 8, padding: '10px 12px', outline: 'none',
+                  }}
+                />
+                <button onClick={saveWeight} style={{
+                  padding: '10px 20px', borderRadius: 8, background: B_COLORS.green,
+                  border: 'none', cursor: 'pointer', fontFamily: B_FONT,
+                  fontSize: 14, fontWeight: 600, color: '#fff',
+                }}>Save</button>
+              </div>
+              {weightLogs.slice().reverse().slice(0, 5).map(l => (
+                <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: `0.5px solid ${B_COLORS.hairline}` }}>
+                  <span style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft }}>{l.date}</span>
+                  <span style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.ink }}>{l.weight} kg</span>
+                  <button onClick={() => handleDeleteStat(l.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 12, color: B_COLORS.red, padding: '2px 6px' }}>Delete</button>
+                </div>
+              ))}
             </div>
-          ) : (
+          ) : weightLogs.length > 0 ? (
             <div style={{ marginTop: 14 }}>
               <LineChart data={weightPoints} field="kg" min={wMin} max={wMax} color={B_COLORS.green} />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
@@ -271,14 +293,14 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* ── Waist ── */}
       <div style={{ padding: '14px 16px 0' }}>
         {sectionHeader('Waist',
-          <button onClick={() => { setEditingWaist(v => !v); setWaistInput(''); }}
+          <button onClick={() => { setEditingWaist(v => !v); setWaistInput(latestWaist !== null ? String(latestWaist) : ''); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 13, fontWeight: 600, color: B_COLORS.blue }}>
             {editingWaist ? 'Cancel' : 'Edit'}
           </button>
@@ -288,41 +310,55 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
                 <span style={{ fontFamily: B_FONT_DISPLAY, fontSize: 36, fontWeight: 700, color: B_COLORS.ink, letterSpacing: -0.8 }}>
-                  {latestWaist}
+                  {latestWaist ?? '—'}
                 </span>
-                <span style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.inkSoft }}>cm</span>
+                {latestWaist !== null && <span style={{ fontFamily: B_FONT, fontSize: 14, color: B_COLORS.inkSoft }}>cm</span>}
+              </div>
+              <div style={{ fontFamily: B_FONT, fontSize: 12, color: B_COLORS.inkSoft, marginTop: 4 }}>
+                {waistLogs.length > 0 ? 'All time' : 'No data yet'}
               </div>
             </div>
-            <div style={{
-              padding: '5px 10px', borderRadius: 8,
-              background: waistDelta <= 0 ? '#F0F4DC' : '#FFF0F0',
-              fontFamily: B_FONT, fontSize: 12, fontWeight: 700,
-              color: waistDelta <= 0 ? '#5A6E1A' : B_COLORS.red,
-            }}>
-              {waistDelta > 0 ? '+' : ''}{waistDelta} cm
-            </div>
+            {waistDelta !== null && (
+              <div style={{
+                padding: '5px 10px', borderRadius: 8,
+                background: waistDelta <= 0 ? '#F0F4DC' : '#FFF0F0',
+                fontFamily: B_FONT, fontSize: 12, fontWeight: 700,
+                color: waistDelta <= 0 ? '#5A6E1A' : B_COLORS.red,
+              }}>
+                {waistDelta > 0 ? '+' : ''}{waistDelta} cm
+              </div>
+            )}
           </div>
 
           {editingWaist ? (
-            <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-              <input
-                type="number" step="0.5" placeholder="cm"
-                value={waistInput}
-                onChange={e => setWaistInput(e.target.value)}
-                autoFocus
-                style={{
-                  flex: 1, fontFamily: B_FONT, fontSize: 16, color: B_COLORS.ink,
-                  background: B_COLORS.bg, border: `0.5px solid ${B_COLORS.hairline}`,
-                  borderRadius: 8, padding: '10px 12px', outline: 'none',
-                }}
-              />
-              <button onClick={saveWaist} style={{
-                padding: '10px 20px', borderRadius: 8, background: B_COLORS.green,
-                border: 'none', cursor: 'pointer', fontFamily: B_FONT,
-                fontSize: 14, fontWeight: 600, color: '#fff',
-              }}>Save</button>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+                <input
+                  type="number" step="0.5" placeholder="cm"
+                  value={waistInput}
+                  onChange={e => setWaistInput(e.target.value)}
+                  autoFocus
+                  style={{
+                    flex: 1, fontFamily: B_FONT, fontSize: 16, color: B_COLORS.ink,
+                    background: B_COLORS.bg, border: `0.5px solid ${B_COLORS.hairline}`,
+                    borderRadius: 8, padding: '10px 12px', outline: 'none',
+                  }}
+                />
+                <button onClick={saveWaist} style={{
+                  padding: '10px 20px', borderRadius: 8, background: B_COLORS.green,
+                  border: 'none', cursor: 'pointer', fontFamily: B_FONT,
+                  fontSize: 14, fontWeight: 600, color: '#fff',
+                }}>Save</button>
+              </div>
+              {waistLogs.slice().reverse().slice(0, 5).map(l => (
+                <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: `0.5px solid ${B_COLORS.hairline}` }}>
+                  <span style={{ fontFamily: B_FONT, fontSize: 13, color: B_COLORS.inkSoft }}>{l.date}</span>
+                  <span style={{ fontFamily: B_FONT, fontSize: 14, fontWeight: 600, color: B_COLORS.ink }}>{l.waist} cm</span>
+                  <button onClick={() => handleDeleteStat(l.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: B_FONT, fontSize: 12, color: B_COLORS.red, padding: '2px 6px' }}>Delete</button>
+                </div>
+              ))}
             </div>
-          ) : (
+          ) : waistLogs.length > 0 ? (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-end', gap: 6, height: 60 }}>
               {waistPoints.map((w, i) => (
                 <div key={w.w} style={{
@@ -334,7 +370,7 @@ export default function HistoryScreen({ userId, groupId, onJumpToDate }: Props) 
                 }} />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
